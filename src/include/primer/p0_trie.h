@@ -224,7 +224,6 @@ class TrieNodeWithValue : public TrieNode {
    */
   // 构造一个新的终端节点时使用
   TrieNodeWithValue(char key_char, T value) : TrieNode(key_char) {
-    TrieNode trie_node(key_char);
     value_ = value;
     is_end_ = true;
   }
