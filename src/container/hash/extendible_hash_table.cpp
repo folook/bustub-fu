@@ -91,32 +91,6 @@ auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
   return ret;
 }
 
-template <typename K, typename V>
-void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
-  //UNREACHABLE("not implemented");
-  std::scoped_lock<std::mutex> lock(latch_);
-  while (true) {
-    //1. 找到 key 所在的桶，尝试插入
-    size_t index = this->IndexOf(key);
-    bool insert_flag = dir_[index]->Insert(key, value);
-    if(insert_flag) {
-      break;
-    }
-    if(this->GetLocalDepth(index) < this->GetGlobalDepth()) {
-      //桶分裂.local_depth++
-      RedistributeBucket(dir_[index]);
-    } else {
-      //目录项扩容一倍,global_depth++
-      this->global_depth_++;
-      //扩容的新指针依此重复指向前 n 个 bucket
-      for(size_t i = 0; i < dir_.size(); i++) {
-        dir_.emplace_back(dir_[i]);
-      }
-    }
-  }
-
-}
-
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::RedistributeBucket(std::shared_ptr<Bucket> bucket) -> void {
@@ -143,6 +117,32 @@ auto ExtendibleHashTable<K, V>::RedistributeBucket(std::shared_ptr<Bucket> bucke
       dir_[i] = p;
     }
   }
+}
+
+template <typename K, typename V>
+void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
+  //UNREACHABLE("not implemented");
+  std::scoped_lock<std::mutex> lock(latch_);
+  while (true) {
+    //1. 找到 key 所在的桶，尝试插入
+    size_t index = this->IndexOf(key);
+    bool insert_flag = dir_[index]->Insert(key, value);
+    if(insert_flag) {
+      break;
+    }
+    if(this->GetLocalDepth(index) < this->GetGlobalDepth()) {
+      //桶分裂.local_depth++
+      RedistributeBucket(dir_[index]);
+    } else {
+      //目录项扩容一倍,global_depth++
+      this->global_depth_++;
+      //扩容的新指针依此重复指向前 n 个 bucket
+      for(size_t i = 0; i < dir_.size(); i++) {
+        dir_.emplace_back(dir_[i]);
+      }
+    }
+  }
+
 }
 
 
