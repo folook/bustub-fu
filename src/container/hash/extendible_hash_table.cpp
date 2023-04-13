@@ -68,7 +68,7 @@ auto ExtendibleHashTable<K, V>::GetNumBucketsInternal() const -> int {
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Find(const K &key, V &value) -> bool {
-  //UNREACHABLE("not implemented");
+  // UNREACHABLE("not implemented");
   std::scoped_lock<std::mutex> lock(latch_);
   //1. 找到 key 所在的桶
   size_t index = this->IndexOf(key);
@@ -81,7 +81,7 @@ auto ExtendibleHashTable<K, V>::Find(const K &key, V &value) -> bool {
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
-  //UNREACHABLE("not implemented");
+  // UNREACHABLE("not implemented");
   std::scoped_lock<std::mutex> lock(latch_);
   //1. 找到 key 所在的桶
   size_t index = this->IndexOf(key);
@@ -121,30 +121,25 @@ auto ExtendibleHashTable<K, V>::RedistributeBucket(std::shared_ptr<Bucket> bucke
 
 template <typename K, typename V>
 void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
-  //UNREACHABLE("not implemented");
+  // UNREACHABLE("not implemented");
   std::scoped_lock<std::mutex> lock(latch_);
   while (true) {
-    //1. 找到 key 所在的桶，尝试插入
     size_t index = this->IndexOf(key);
     bool insert_flag = dir_[index]->Insert(key, value);
     if(insert_flag) {
       break;
     }
-    if(this->GetLocalDepth(index) < this->GetGlobalDepth()) {
-      //桶分裂.local_depth++
+    if (GetLocalDepthInternal(index) != GetGlobalDepthInternal()) {
       RedistributeBucket(dir_[index]);
     } else {
-      //目录项扩容一倍,global_depth++
-      this->global_depth_++;
-      //扩容的新指针依此重复指向前 n 个 bucket
-      for(size_t i = 0; i < dir_.size(); i++) {
+      global_depth_++;
+      size_t dir_size = dir_.size();
+      for (size_t i = 0; i < dir_size; i++) {
         dir_.emplace_back(dir_[i]);
       }
     }
   }
-
 }
-
 
 //===--------------------------------------------------------------------===//
 // Bucket
@@ -157,6 +152,7 @@ auto ExtendibleHashTable<K, V>::Bucket::Find(const K &key, V &value) -> bool {
   //UNREACHABLE("not implemented");
   for(auto it = list_.begin(); it != list_.end(); it++) {
     if((*it).first == key) {
+      value = (*it).second;
       return true;
     }
   }
@@ -171,7 +167,6 @@ auto ExtendibleHashTable<K, V>::Bucket::Remove(const K &key) -> bool {
       list_.erase(it);
       return true;
     }
-    //删除之常鸥会自动++，所以只在这里写++
     it++;
   }
   return false;
@@ -189,7 +184,6 @@ auto ExtendibleHashTable<K, V>::Bucket::Insert(const K &key, const V &value) -> 
   if(this->IsFull()) {
     return false;
   }
-  //构造对象
   list_.emplace_back(std::make_pair(key, value));
   return true;
 }
