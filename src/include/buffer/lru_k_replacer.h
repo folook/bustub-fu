@@ -145,8 +145,8 @@ class LRUKReplacer {
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
   [[maybe_unused]] size_t current_timestamp_{0};
-  size_t curr_size_{0};//可驱逐页面的数量
-  size_t replacer_size_;//LRUKReplacer初始化参数，进行 LRU-K 的页面数量，等于缓冲池容量
+  size_t curr_size_{0};   // 可驱逐页面的数量
+  size_t replacer_size_;  // LRUKReplacer初始化参数，进行 LRU-K 的页面数量，等于缓冲池容量
   size_t k_;
   std::mutex latch_;
 };
