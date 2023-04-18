@@ -111,7 +111,7 @@ auto ExtendibleHashTable<K, V>::RedistributeBucket(std::shared_ptr<Bucket> bucke
   }
   for (size_t i = 0; i < dir_.size(); i++) {
     // 1001，低 3 位是 001，低 4 位不是 0001（1001），这些 dir 需要指向新的 bucket
-    if ((i & ((1 << (depth - 1)) - 1)) == preidx && (i & ((1 << depth) - 1)) != preidx) {
+    if (dir_[i] == bucket && (i & ((1 << depth) - 1)) != preidx) {
       dir_[i] = p;
     }
   }
