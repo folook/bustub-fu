@@ -79,6 +79,7 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
 }
 
 auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
+  assert(page_id != INVALID_PAGE_ID);
   std::scoped_lock lock(latch_);
   frame_id_t fid;
   // requested page already in buffer pool

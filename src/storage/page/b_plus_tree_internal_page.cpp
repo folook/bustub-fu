@@ -26,23 +26,18 @@ namespace bustub {
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id, int max_size) {
-  SetPageType(IndexPageType::INTERNAL_PAGE);
-  SetSize(0);
-
   SetPageId(page_id);
   SetParentPageId(parent_id);
   SetMaxSize(max_size);
+  SetPageType(IndexPageType::INTERNAL_PAGE);
+  SetSize(0);
 }
 /*
  * Helper method to get/set the key associated with input "index"(a.k.a
  * array offset)
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType {
-  // replace with your own code
-
-  return array_[index].first;
-}
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType { return array_[index].first; }
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) { array_[index].first = key; }
@@ -171,11 +166,13 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::GetBotherPage(page_id_t child_page_id, Page
   }
   if (i >= 1) {
     bother_page = buffer_pool_manager_->FetchPage(ValueAt(i - 1));
+    bother_page->WLatch();
     key = KeyAt(i);
     ispre = true;
     return;
   }
   bother_page = buffer_pool_manager_->FetchPage(ValueAt(i + 1));
+  bother_page->WLatch();
   key = KeyAt(i + 1);
   ispre = false;
 }
@@ -219,6 +216,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::DeleteFirst() -> void {
   }
   IncreaseSize(-1);
 }
+
 // valuetype for internalNode should be page id_t
 template class BPlusTreeInternalPage<GenericKey<4>, page_id_t, GenericComparator<4>>;
 template class BPlusTreeInternalPage<GenericKey<8>, page_id_t, GenericComparator<8>>;
