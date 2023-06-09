@@ -18,7 +18,7 @@ namespace bustub {
 
 DeleteExecutor::DeleteExecutor(ExecutorContext *exec_ctx, const DeletePlanNode *plan,
                                std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx) {}
+    : AbstractExecutor(exec_ctx), plan_(plan), child_executor_(std::move(child_executor)) {}
 
 void DeleteExecutor::Init() {
   table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->TableOid());
