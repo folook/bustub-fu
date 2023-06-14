@@ -54,6 +54,5 @@ class NestIndexJoinExecutor : public AbstractExecutor {
 
   IndexInfo *index_info_;
   TableInfo *table_info_;
-
 };
 }  // namespace bustub

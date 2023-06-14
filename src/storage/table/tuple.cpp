@@ -45,7 +45,7 @@ Tuple::Tuple(std::vector<Value> values, const Schema *schema) : allocated_(true)
 
   for (uint32_t i = 0; i < column_count; i++) {
     const auto &col = schema->GetColumn(i);
-    if (!col.IsInlined()) {//当 tuple 中的col 字符串才会走if，否则 else
+    if (!col.IsInlined()) {  // 当 tuple 中的col 字符串才会走if，否则 else
       // Serialize relative offset, where the actual varchar data is stored.
       *reinterpret_cast<uint32_t *>(data_ + col.GetOffset()) = offset;
       // Serialize varchar value, in place (size+data).

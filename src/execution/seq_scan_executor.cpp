@@ -14,14 +14,15 @@
 
 namespace bustub {
 
-SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNode *plan) : AbstractExecutor(exec_ctx), plan_(plan) {}
+SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNode *plan)
+    : AbstractExecutor(exec_ctx), plan_(plan) {}
 
 void SeqScanExecutor::Init() {
   table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid());
   table_iterator_ = table_info_->table_->Begin(exec_ctx_->GetTransaction());
 }
 
-//获得下一条 tuple 和 rid
+// 获得下一条 tuple 和 rid
 auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   if (table_iterator_ != table_info_->table_->End()) {
     *tuple = *table_iterator_;

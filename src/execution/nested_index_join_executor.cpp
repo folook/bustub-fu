@@ -26,15 +26,13 @@ NestIndexJoinExecutor::NestIndexJoinExecutor(ExecutorContext *exec_ctx, const Ne
   table_info_ = exec_ctx->GetCatalog()->GetTable(plan_->GetInnerTableOid());
 }
 
-void NestIndexJoinExecutor::Init() {
-  child_executor_->Init();
-}
+void NestIndexJoinExecutor::Init() { child_executor_->Init(); }
 
 auto NestIndexJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   Tuple left_tuple;
   RID left_rid;
 
-  while(child_executor_->Next(&left_tuple, &left_rid)) {
+  while (child_executor_->Next(&left_tuple, &left_rid)) {
     /*扫描左表，然后直接查索引*/
     auto key_schema = index_info_->index_->GetKeySchema();
     /*这个tuple对应的schema*/
@@ -47,7 +45,7 @@ auto NestIndexJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     /*如果匹配上了因为keyB不存在重复，所以如果能匹配，肯定匹配一次就结束。inner*/
     if (!results.empty()) {
       for (auto rid_b : results) {
-        Tuple right_tuple; // 对于每个rid，可以通过catalog获得对应的tuple，如果tuple存在
+        Tuple right_tuple;  // 对于每个rid，可以通过catalog获得对应的tuple，如果tuple存在
         if (table_info_->table_->GetTuple(rid_b, &right_tuple, exec_ctx_->GetTransaction())) {
           std::vector<Value> tuple_values;
           for (uint32_t i = 0; i < child_executor_->GetOutputSchema().GetColumnCount(); i++) {
@@ -60,20 +58,20 @@ auto NestIndexJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
           return true;
         }
       }
-  }
+    }
     /*右表没有元素时，并且是left join，则需要填null
-       * 如果是inner join，没有任何行匹配，则不用管，直接忽略
-       * */
+     * 如果是inner join，没有任何行匹配，则不用管，直接忽略
+     * */
     if (plan_->GetJoinType() == JoinType::LEFT) {
-        std::vector<Value> tuple_values;
-        for (uint32_t i = 0; i < child_executor_->GetOutputSchema().GetColumnCount(); i++) {
-          tuple_values.push_back(left_tuple.GetValue(&child_executor_->GetOutputSchema(), i));
-        }
-        for (uint32_t i = 0; i < table_info_->schema_.GetColumnCount(); i++) {
-          tuple_values.push_back(ValueFactory::GetNullValueByType(table_info_->schema_.GetColumn(i).GetType()));
-        }
-        *tuple = {tuple_values, &plan_->OutputSchema()};
-        return true;
+      std::vector<Value> tuple_values;
+      for (uint32_t i = 0; i < child_executor_->GetOutputSchema().GetColumnCount(); i++) {
+        tuple_values.push_back(left_tuple.GetValue(&child_executor_->GetOutputSchema(), i));
+      }
+      for (uint32_t i = 0; i < table_info_->schema_.GetColumnCount(); i++) {
+        tuple_values.push_back(ValueFactory::GetNullValueByType(table_info_->schema_.GetColumn(i).GetType()));
+      }
+      *tuple = {tuple_values, &plan_->OutputSchema()};
+      return true;
     }
   }
   return false;

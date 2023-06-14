@@ -42,7 +42,7 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
         auto key = (*tuple).KeyFromTuple(table_info_->schema_, index->key_schema_, index->index_->GetKeyAttrs());
         index->index_->InsertEntry(key, *rid, exec_ctx_->GetTransaction());
       }
-      //有多少行受到了影响
+      // 有多少行受到了影响
       count++;
     }
   }
@@ -52,7 +52,6 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   *tuple = Tuple(value, &schema);
   successful_ = true;
   return true;
-
 }
 
 }  // namespace bustub

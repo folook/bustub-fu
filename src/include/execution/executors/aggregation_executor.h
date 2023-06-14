@@ -71,7 +71,6 @@ class SimpleAggregationHashTable {
    * @param input The input value
    */
   void CombineAggregateValues(AggregateValue *result, const AggregateValue &input) {
-
     for (uint32_t i = 0; i < agg_exprs_.size(); i++) {
       switch (agg_types_[i]) {
         case AggregationType::CountStarAggregate:
@@ -80,7 +79,8 @@ class SimpleAggregationHashTable {
           break;
         case AggregationType::CountAggregate:
           /* Q: count(*)和count有什么区别？
-           * A:count(*)包括了所有的列，相当于行数，在统计结果的时候，不会忽略列值为NULL。 count(列名)只包括列名那一列，在统计结果的时候，会忽略列值为空。
+           * A:count(*)包括了所有的列，相当于行数，在统计结果的时候，不会忽略列值为NULL。
+           * count(列名)只包括列名那一列，在统计结果的时候，会忽略列值为空。
            * */
           if (!input.aggregates_[i].IsNull()) {
             if (result->aggregates_[i].IsNull()) {
@@ -132,8 +132,8 @@ class SimpleAggregationHashTable {
     if (ht_.count(agg_key) == 0) {
       ht_.insert({agg_key, GenerateInitialAggregateValue()});
     }
-    //第一个参数是 agg_key 对应的 agg_value，第二个参数是新来的 value
-    //哈希表中已经有数据了，按照 group 规则把新来的 value 统计进去
+    // 第一个参数是 agg_key 对应的 agg_value，第二个参数是新来的 value
+    // 哈希表中已经有数据了，按照 group 规则把新来的 value 统计进去
     CombineAggregateValues(&ht_[agg_key], agg_val);
   }
 
@@ -247,7 +247,7 @@ class AggregationExecutor : public AbstractExecutor {
   /** Simple aggregation hash table iterator */
   // TODO(Student): Uncomment SimpleAggregationHashTable::Iterator aht_iterator_;
 
-  //test green block
+  // test green block
   SimpleAggregationHashTable hash_table_;
   SimpleAggregationHashTable::Iterator ht_iterator_;
   bool success_{false};

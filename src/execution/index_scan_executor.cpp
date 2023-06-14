@@ -24,7 +24,7 @@ void IndexScanExecutor::Init() {
 
 auto IndexScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   if (iterator_ != index_tree_->GetEndIterator()) {
-    *rid  = (*iterator_).second;
+    *rid = (*iterator_).second;
     if (table_heap_->GetTuple(*rid, tuple, exec_ctx_->GetTransaction())) {
       iterator_.operator++();
       return true;
