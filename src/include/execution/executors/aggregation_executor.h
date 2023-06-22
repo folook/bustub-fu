@@ -74,10 +74,50 @@ class SimpleAggregationHashTable {
     for (uint32_t i = 0; i < agg_exprs_.size(); i++) {
       switch (agg_types_[i]) {
         case AggregationType::CountStarAggregate:
+          /*数量加1*/
+          result->aggregates_[i] = result->aggregates_[i].Add({INTEGER, 1});
+          break;
         case AggregationType::CountAggregate:
+          /* Q: count(*)和count有什么区别？
+           * A:count(*)包括了所有的列，相当于行数，在统计结果的时候，不会忽略列值为NULL。
+           * count(列名)只包括列名那一列，在统计结果的时候，会忽略列值为空。
+           * */
+          if (!input.aggregates_[i].IsNull()) {
+            if (result->aggregates_[i].IsNull()) {
+              result->aggregates_[i] = Value(INTEGER, 0);
+            }
+            result->aggregates_[i] = result->aggregates_[i].Add({INTEGER, 1});
+          }
+          break;
         case AggregationType::SumAggregate:
+          /*result没有值的时候，先赋初值*/
+          if (!input.aggregates_[i].IsNull() && result->aggregates_[i].IsNull()) {
+            result->aggregates_[i] = Value(INTEGER, 0);
+          }
+          /*只有是整数时才能累加*/
+          if (!input.aggregates_[i].IsNull() && input.aggregates_[i].CheckInteger()) {
+            result->aggregates_[i] = result->aggregates_[i].Add(input.aggregates_[i]);
+          }
+          break;
         case AggregationType::MinAggregate:
+          /* 1. 为空
+           * 2. 比现有的小
+           * */
+          if (!input.aggregates_[i].IsNull() &&
+              (result->aggregates_[i].IsNull() ||
+               input.aggregates_[i].CompareLessThan(result->aggregates_[i]) == CmpBool::CmpTrue)) {
+            result->aggregates_[i] = input.aggregates_[i];
+          }
+          break;
         case AggregationType::MaxAggregate:
+          /* 1. 为空
+           * 2. 比现有的大
+           * */
+          if (!input.aggregates_[i].IsNull() &&
+              (result->aggregates_[i].IsNull() ||
+               input.aggregates_[i].CompareGreaterThan(result->aggregates_[i]) == CmpBool::CmpTrue)) {
+            result->aggregates_[i] = input.aggregates_[i];
+          }
           break;
       }
     }
@@ -92,6 +132,8 @@ class SimpleAggregationHashTable {
     if (ht_.count(agg_key) == 0) {
       ht_.insert({agg_key, GenerateInitialAggregateValue()});
     }
+    // 第一个参数是 agg_key 对应的 agg_value，第二个参数是新来的 value
+    // 哈希表中已经有数据了，按照 group 规则把新来的 value 统计进去
     CombineAggregateValues(&ht_[agg_key], agg_val);
   }
 
@@ -204,5 +246,10 @@ class AggregationExecutor : public AbstractExecutor {
   // TODO(Student): Uncomment SimpleAggregationHashTable aht_;
   /** Simple aggregation hash table iterator */
   // TODO(Student): Uncomment SimpleAggregationHashTable::Iterator aht_iterator_;
+
+  // test green block
+  SimpleAggregationHashTable hash_table_;
+  SimpleAggregationHashTable::Iterator ht_iterator_;
+  bool success_{false};
 };
 }  // namespace bustub

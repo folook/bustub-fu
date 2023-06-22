@@ -132,13 +132,22 @@ class LRUKReplacer {
    */
   auto Size() -> size_t;
 
+  struct FrameEntry {
+    bool evictable_{true};
+    size_t hit_count_{0};
+    std::list<frame_id_t>::iterator pos_;
+  };
+
  private:
+  std::list<frame_id_t> his_list_;
+  std::list<frame_id_t> cache_list_;
+  std::unordered_map<frame_id_t, FrameEntry> entries_;
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
   [[maybe_unused]] size_t current_timestamp_{0};
-  [[maybe_unused]] size_t curr_size_{0};
-  [[maybe_unused]] size_t replacer_size_;
-  [[maybe_unused]] size_t k_;
+  size_t curr_size_{0};   // 可驱逐页面的数量
+  size_t replacer_size_;  // LRUKReplacer初始化参数，进行 LRU-K 的页面数量，等于缓冲池容量
+  size_t k_;
   std::mutex latch_;
 };
 
