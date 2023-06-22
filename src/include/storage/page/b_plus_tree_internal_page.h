@@ -36,28 +36,32 @@ INDEX_TEMPLATE_ARGUMENTS
 class BPlusTreeInternalPage : public BPlusTreePage {
  public:
   // must call initialize method after "create" a new node
-  std::mutex bother_latch_;
   void Init(page_id_t page_id, page_id_t parent_id = INVALID_PAGE_ID, int max_size = INTERNAL_PAGE_SIZE);
 
   auto KeyAt(int index) const -> KeyType;
   void SetKeyAt(int index, const KeyType &key);
   auto ValueAt(int index) const -> ValueType;
-
-  auto Lookup(const KeyType &key, const KeyComparator &keyComparator) -> ValueType;
   void SetValueAt(int index, const ValueType &value);
-  void Insert(const MappingType &value, const KeyComparator &keyComparator);
-  void Split(const KeyType &key, Page *page_bother, Page *page_parent_page, const KeyComparator &keyComparator,
-             BufferPoolManager *buffer_pool_manager_);
-  void DeleteFirst();
-  void InsertFirst(const KeyType &key, const ValueType &value);
-  auto KeyIndex(const KeyType &key, const KeyComparator &keyComparator) -> int;
-  auto Delete(const KeyType &key, const KeyComparator &keyComparator) -> bool;
-  void GetBotherPage(page_id_t child_page_id, Page *&bother_page, KeyType &key, bool &ispre,
-                     BufferPoolManager *buffer_pool_manager_);
-  void Merge(const KeyType &key, Page *right_page, BufferPoolManager *buffer_pool_manager_);
+  auto ValueIndex(const ValueType &value) const -> int;
+
+  auto Lookup(const KeyType &key, const KeyComparator &comparator) const -> ValueType;
+  void PopulateNewRoot(const ValueType &old_value, const KeyType &new_key, const ValueType &new_value);
+  auto InsertNodeAfter(const ValueType &old_value, const KeyType &new_key, const ValueType &new_value) -> int;
+  void Remove(int index);
+  auto RemoveAndReturnOnlyChild() -> ValueType;
+
+  void MoveAllTo(BPlusTreeInternalPage *recipient, const KeyType &middle_key, BufferPoolManager *buffer_pool_manager);
+  void MoveHalfTo(BPlusTreeInternalPage *recipient, BufferPoolManager *buffer_pool_manager);
+  void MoveFirstToEndOf(BPlusTreeInternalPage *recipient, const KeyType &middle_key,
+                        BufferPoolManager *buffer_pool_manager);
+  void MoveLastToFrontOf(BPlusTreeInternalPage *recipient, const KeyType &middle_key,
+                         BufferPoolManager *buffer_pool_manager);
 
  private:
   // Flexible array member for page data.
   MappingType array_[1];
+  void CopyNFrom(MappingType *items, int size, BufferPoolManager *buffer_pool_manager);
+  void CopyLastFrom(const MappingType &pair, BufferPoolManager *buffer_pool_manager);
+  void CopyFirstFrom(const MappingType &pair, BufferPoolManager *buffer_pool_manager);
 };
 }  // namespace bustub

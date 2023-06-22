@@ -39,6 +39,7 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
     if (table_heap_->InsertTuple(*tuple, rid, exec_ctx_->GetTransaction())) {
       auto indexs = exec_ctx_->GetCatalog()->GetTableIndexes(table_name_);
       for (auto index : indexs) {
+        // todo 这里的的table_info_->schema_ 和 paln_ouputschema区别是什么
         auto key = (*tuple).KeyFromTuple(table_info_->schema_, index->key_schema_, index->index_->GetKeyAttrs());
         index->index_->InsertEntry(key, *rid, exec_ctx_->GetTransaction());
       }
