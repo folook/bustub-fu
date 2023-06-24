@@ -229,32 +229,56 @@ class LockManager {
    *    If not, LockManager should set the TransactionState as ABORTED and throw
    *    a TransactionAbortException (ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD)
    *
+   *    UnlockTable() and UnlockRow() 应该释放资源上的锁并 return
+   *    这两个函数都应该确保已经有（任意）事务持有了锁（不在意锁的类型）
+   *    如果事务没有持有这个资源的锁，但是事务依旧要对这个资源解锁的话，中止事务并且抛出异常：ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD
+   *    （注意，unlock 函数不在意锁的类型！）
+   *
    *    Additionally, unlocking a table should only be allowed if the transaction does not hold locks on any
    *    row on that table. If the transaction holds locks on rows of the table, Unlock should set the Transaction State
    *    as ABORTED and throw a TransactionAbortException (TABLE_UNLOCKED_BEFORE_UNLOCKING_ROWS).
+   *    此外，只有事务清空了自己的行锁才可以解表锁，如果在有行锁的情况下解表锁，中止事务并且抛出异常：TABLE_UNLOCKED_BEFORE_UNLOCKING_ROWS
    *
    *    Finally, unlocking a resource should also grant any new lock requests for the resource (if possible).
+   *    解锁之后应该唤醒其他线程
    *
    * TRANSACTION STATE UPDATE
    *    Unlock should update the transaction state appropriately (depending upon the ISOLATION LEVEL)
    *    Only unlocking S or X locks changes transaction state.
    *
+   *    重要：事务状态更新
+   *    解锁操作应该根据隔离级别适当地更新事务状态（根据隔离级别）
+   *    只有解锁 S 或者 X 锁才更改事务状态
+   *
    *    REPEATABLE_READ:
    *        Unlocking S/X locks should set the transaction state to SHRINKING
+   *
+   *       可重复读：
+   *            解开 s/x锁都应该将事务状态设置为 shrinking
    *
    *    READ_COMMITTED:
    *        Unlocking X locks should set the transaction state to SHRINKING.
    *        Unlocking S locks does not affect transaction state.
+   *
+   *        读提交：
+   *            解锁 × 锁应将事务状态设置为SHRINKING。
+   *            解锁 s 锁不影响事务状态。
    *
    *   READ_UNCOMMITTED:
    *        Unlocking X locks should set the transaction state to SHRINKING.
    *        S locks are not permitted under READ_UNCOMMITTED.
    *            The behaviour upon unlocking an S lock under this isolation level is undefined.
    *
+   *            读未提交：
+   *                解锁 X 锁事务状态设置为SHRINKING。
+   *                不允许使用 S 锁
+   *                在此隔离级别下解锁S锁的行为未定义
+   *
    *
    * BOOK KEEPING:
    *    After a resource is unlocked, lock manager should update the transaction's lock sets
    *    appropriately (check transaction.h)
+   *    在一个资源被解锁之后，锁管理器应当相应地更新事务的锁集合 set
    */
 
   /**
