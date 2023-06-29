@@ -18,40 +18,60 @@ namespace bustub {
 
 InsertExecutor::InsertExecutor(ExecutorContext *exec_ctx, const InsertPlanNode *plan,
                                std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx), plan_(plan), child_executor_(std::move(child_executor)) {}
+    : AbstractExecutor(exec_ctx), plan_{plan}, child_executor_{std::move(child_executor)} {
+  this->table_info_ = this->exec_ctx_->GetCatalog()->GetTable(plan_->table_oid_);
+}
 
 void InsertExecutor::Init() {
-  table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->TableOid());
-  table_heap_ = table_info_->table_.get();
-  table_name_ = table_info_->name_;
-  iterator_ = std::make_unique<TableIterator>(table_heap_->Begin(exec_ctx_->GetTransaction()));
   child_executor_->Init();
+  try {
+    bool is_locked = exec_ctx_->GetLockManager()->LockTable(
+        exec_ctx_->GetTransaction(), LockManager::LockMode::INTENTION_EXCLUSIVE, table_info_->oid_);
+    if (!is_locked) {
+      throw ExecutionException("Insert Executor Get Table Lock Failed");
+    }
+  } catch (TransactionAbortException e) {
+    throw ExecutionException("Insert Executor Get Table Lock Failed");
+  }
+  table_indexes_ = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
 }
 
 auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
-  if (successful_) {
+  if (is_end_) {
     return false;
   }
-  int count = 0;
-  // 向 table_heap_ 中插入，然后需要向 index 中插入
-  //  indexs 中插入的 tuple 和原本的 tuple 不同，需要调用 KeyFromTuple 构造
-  while (child_executor_->Next(tuple, rid)) {
-    if (table_heap_->InsertTuple(*tuple, rid, exec_ctx_->GetTransaction())) {
-      auto indexs = exec_ctx_->GetCatalog()->GetTableIndexes(table_name_);
-      for (auto index : indexs) {
-        // todo 这里的的table_info_->schema_ 和 paln_ouputschema区别是什么
-        auto key = (*tuple).KeyFromTuple(table_info_->schema_, index->key_schema_, index->index_->GetKeyAttrs());
-        index->index_->InsertEntry(key, *rid, exec_ctx_->GetTransaction());
+  Tuple to_insert_tuple{};
+  RID emit_rid;
+  int32_t insert_count = 0;
+
+  while (child_executor_->Next(&to_insert_tuple, &emit_rid)) {
+    bool inserted = table_info_->table_->InsertTuple(to_insert_tuple, rid, exec_ctx_->GetTransaction());
+
+    if (inserted) {
+      try {
+        bool is_locked = exec_ctx_->GetLockManager()->LockRow(
+            exec_ctx_->GetTransaction(), LockManager::LockMode::EXCLUSIVE, table_info_->oid_, *rid);
+        if (!is_locked) {
+          throw ExecutionException("Insert Executor Get Row Lock Failed");
+        }
+      } catch (TransactionAbortException e) {
+        throw ExecutionException("Insert Executor Get Row Lock Failed");
       }
-      // 有多少行受到了影响
-      count++;
+
+      std::for_each(table_indexes_.begin(), table_indexes_.end(),
+                    [&to_insert_tuple, &rid, &table_info = table_info_, &exec_ctx = exec_ctx_](IndexInfo *index) {
+                      index->index_->InsertEntry(to_insert_tuple.KeyFromTuple(table_info->schema_, index->key_schema_,
+                                                                              index->index_->GetKeyAttrs()),
+                                                 *rid, exec_ctx->GetTransaction());
+                    });
+      insert_count++;
     }
   }
-  std::vector<Value> value;
-  value.emplace_back(INTEGER, count);
-  Schema schema(plan_->OutputSchema());
-  *tuple = Tuple(value, &schema);
-  successful_ = true;
+  std::vector<Value> values{};
+  values.reserve(GetOutputSchema().GetColumnCount());
+  values.emplace_back(TypeId::INTEGER, insert_count);
+  *tuple = Tuple{values, &GetOutputSchema()};
+  is_end_ = true;
   return true;
 }
 

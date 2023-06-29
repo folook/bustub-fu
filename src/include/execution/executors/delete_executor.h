@@ -13,7 +13,6 @@
 #pragma once
 
 #include <memory>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -45,7 +44,7 @@ class DeleteExecutor : public AbstractExecutor {
   /**
    * Yield the number of rows deleted from the table.
    * @param[out] tuple The integer tuple indicating the number of rows deleted from the table
-   * @param[out] rid The next tuple RID produced by the update (ignore, not used)
+   * @param[out] rid The next tuple RID produced by the delete (ignore, not used)
    * @return `true` if a tuple was produced, `false` if there are no more tuples
    *
    * NOTE: DeleteExecutor::Next() does not use the `rid` out-parameter.
@@ -61,10 +60,10 @@ class DeleteExecutor : public AbstractExecutor {
   const DeletePlanNode *plan_;
   /** The child executor from which RIDs for deleted tuples are pulled */
   std::unique_ptr<AbstractExecutor> child_executor_;
-  TableInfo *table_info_;
-  TableHeap *table_heap_;
-  std::unique_ptr<TableIterator> iterator_;
-  std::string table_name_;
-  bool successful_{false};
+
+  const TableInfo *table_info_;
+
+  std::vector<IndexInfo *> table_indexes_;
+  bool is_end_{false};
 };
 }  // namespace bustub

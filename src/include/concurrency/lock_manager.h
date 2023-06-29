@@ -95,25 +95,16 @@ class LockManager {
    *    Both LockTable() and LockRow() are blocking methods; they should wait till the lock is granted and then return.
    *    If the transaction was aborted in the meantime, do not grant the lock and return false.
    *
-   *    LockTable() 和 LockRow()都是阻塞方法，应该等待（阻塞）直到锁被授予才可以 return
-   *    如果阻塞期间事务被 abort，则这两个方法不会被授予锁并且返回 false
    *
    * MULTIPLE TRANSACTIONS:
    *    LockManager should maintain a queue for each resource; locks should be granted to transactions in a FIFO manner.
    *    If there are multiple compatible lock requests, all should be granted at the same time
    *    as long as FIFO is honoured.
    *
-   *    LM 为每个 表/tuple 维护一个队列，锁应该以先进先出的方式被授予给事务（哪个事务先申请，哪个事务先获得）
-   *    如果有多个锁兼容的请求，在遵循先进先出的大前提下，应该同时给这些事务授予锁
-   *
-   *
    * SUPPORTED LOCK MODES:
    *    Table locking should support all lock modes.
    *    Row locking should not support Intention locks. Attempting this should set the TransactionState as
    *    ABORTED and throw a TransactionAbortException (ATTEMPTED_INTENTION_LOCK_ON_ROW)
-   *
-   *    表锁支持所有的锁模式：S 锁、X 锁、意向锁
-   *    行锁不应该支持意向锁，尝试给 行 申请意向锁的事务应该被abort，并且抛出异常
    *
    *
    * ISOLATION LEVEL:
@@ -121,51 +112,26 @@ class LockManager {
    *    - Only if required, AND
    *    - Only if allowed
    *
-   *    根据 DBMS 的用户设置的隔离级别，一个事务应该在满足以下条件时才能尝试申请锁：
-   *    - 仅当这个事务需要时
-   *    - 仅当这个事务被允许申请对应类型的锁时
-   *
    *    For instance S/IS/SIX locks are not required under READ_UNCOMMITTED, and any such attempt should set the
    *    TransactionState as ABORTED and throw a TransactionAbortException (LOCK_SHARED_ON_READ_UNCOMMITTED).
    *
-   *    todo 比如，在 读未提交 隔离级别下不需要 S/IS/SI 锁，所以任何事务都不应该尝试获取 S/IS/SI 锁。如果有这种情况发生，就要中止事务且抛出异常
-   *
    *    Similarly, X/IX locks on rows are not allowed if the the Transaction State is SHRINKING, and any such attempt
    *    should set the TransactionState as ABORTED and throw a TransactionAbortException (LOCK_ON_SHRINKING).
-   *
-   *    todo 类似地， 事务在 SHRINKING 状态时不允许对行申请 X/IX 锁，任何这种操作都要中止事务且抛出异常
-   *    todo 下面就详细告诉你，在每一种隔离级别下，哪些锁可以加，哪些锁不可以加
    *
    *    REPEATABLE_READ:
    *        The transaction is required to take all locks.
    *        All locks are allowed in the GROWING state
    *        No locks are allowed in the SHRINKING state
    *
-   *        可重复读 RR：
-   *        -事务应该申请所有的锁
-   *        -在 growing 阶段，所有的锁都可以被申请
-   *        -在 shrinking 阶段，不允许申请任何锁
-   *
-   *
    *    READ_COMMITTED:
    *        The transaction is required to take all locks.
    *        All locks are allowed in the GROWING state
    *        Only IS, S locks are allowed in the SHRINKING state
    *
-   *        读提交 RC
-   *        -事务应该申请所有的锁
-   *        -在 growing 阶段，所有的锁都可以被申请
-   *        -在 shrinking 阶段，仅允许申请 IS 、S 锁
-   *
    *    READ_UNCOMMITTED:
    *        The transaction is required to take only IX, X locks.
    *        X, IX locks are allowed in the GROWING state.
    *        S, IS, SIX locks are never allowed
-   *
-   *        读未提交 RU
-   *        -事务 仅可以申请 X、IX 锁
-   *        -在 growing 阶段，仅可以申请 X、IX 锁
-   *        - S, IS, SIX locks 永远不允许
    *
    *
    * MULTILEVEL LOCKING:
@@ -174,10 +140,6 @@ class LockManager {
    *    X, IX, or SIX on the table. If such a lock does not exist on the table, Lock() should set the TransactionState
    *    as ABORTED and throw a TransactionAbortException (TABLE_LOCK_NOT_PRESENT)
    *
-   * 多级锁定
-   *    当申请行锁时，Lock()函数应该确保事务在行的父节点（表）上已经有了相应的锁，比如，如果事务为一个行申请排他锁，那么这个事务必须先在表（父节点）上
-   *    拥有 X、IX、SIX 锁，如果没有，Lock()函数就要中止事务并且抛出异常
-   *
    *
    * LOCK UPGRADE:
    *    Calling Lock() on a resource that is already locked should have the following behaviour:
@@ -185,39 +147,24 @@ class LockManager {
    *      Lock() should return true since it already has the lock.
    *    - If requested lock mode is different, Lock() should upgrade the lock held by the transaction.
    *
-   * 锁升级
-   *    针对某个<已经加了锁的>资源申请锁（针对这个资源调用 Lock()函数），应该遵循以下规则：
-   *    - 如果请求的锁类型和已有的锁相同，则 Lock() should return true；
-   *    - 如果要加的锁类型和<已有的锁>类型不同，Lock()函数应该对锁进行升级
-   *
    *    A lock request being upgraded should be prioritised over other waiting lock requests on the same resource.
-   *    关键：正在升级的锁请求，优先于其他事务的正在等待的锁请求，即一旦这个资源的这个锁被释放，升级锁这个锁请求会被立马授权锁（第一个等待的位置）
-   *    即：升级的锁的优先级是很高的
    *
-   *    在升级期间，仅允许以下转换：
    *    While upgrading, only the following transitions should be allowed:
-   *        IS -> [S, X, SIX]
+   *        IS -> [S, X, IX, SIX]
    *        S -> [X, SIX]
    *        IX -> [X, SIX]
    *        SIX -> [X]
-   *
    *    Any other upgrade is considered incompatible, and such an attempt should set the TransactionState as ABORTED
    *    and throw a TransactionAbortException (INCOMPATIBLE_UPGRADE)
-   *    其他所有升级都被认为是非法，主张这种升级的中止且抛出异常
    *
    *    Furthermore, only one transaction should be allowed to upgrade its lock on a given resource.
    *    Multiple concurrent lock upgrades on the same resource should set the TransactionState as
    *    ABORTED and throw a TransactionAbortException (UPGRADE_CONFLICT).
-   *    另外，在给定资源上，至允许有一个事务升级锁，如果发现同一资源上有多个升级的事务，应该设置这些并发的事务中止且抛出异常
+   *
    *
    * BOOK KEEPING:
    *    If a lock is granted to a transaction, lock manager should update its
    *    lock sets appropriately (check transaction.h)
-   *    如果将锁授予事务，则锁管理器应该更新这个事务的锁集(请检查Transaction.h)
-   *    注意这里不是锁表，锁表是以资源位索引（key），value 记录了这个针对资源的各个事务的请求
-   *    而这里的锁集是以事务为索引，记录了这个事务目前拿到了几把锁，记录的目的是，如果这个事务脏哦g内hi了，就可以把事务对应的锁资源全部释放
-   *
-   *
    */
 
   /**
@@ -229,56 +176,32 @@ class LockManager {
    *    If not, LockManager should set the TransactionState as ABORTED and throw
    *    a TransactionAbortException (ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD)
    *
-   *    UnlockTable() and UnlockRow() 应该释放资源上的锁并 return
-   *    这两个函数都应该确保已经有（任意）事务持有了锁（不在意锁的类型）
-   *    如果事务没有持有这个资源的锁，但是事务依旧要对这个资源解锁的话，中止事务并且抛出异常：ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD
-   *    （注意，unlock 函数不在意锁的类型！）
-   *
    *    Additionally, unlocking a table should only be allowed if the transaction does not hold locks on any
    *    row on that table. If the transaction holds locks on rows of the table, Unlock should set the Transaction State
    *    as ABORTED and throw a TransactionAbortException (TABLE_UNLOCKED_BEFORE_UNLOCKING_ROWS).
-   *    此外，只有事务清空了自己的行锁才可以解表锁，如果在有行锁的情况下解表锁，中止事务并且抛出异常：TABLE_UNLOCKED_BEFORE_UNLOCKING_ROWS
    *
    *    Finally, unlocking a resource should also grant any new lock requests for the resource (if possible).
-   *    解锁之后应该唤醒其他线程
    *
    * TRANSACTION STATE UPDATE
    *    Unlock should update the transaction state appropriately (depending upon the ISOLATION LEVEL)
    *    Only unlocking S or X locks changes transaction state.
    *
-   *    重要：事务状态更新
-   *    解锁操作应该根据隔离级别适当地更新事务状态（根据隔离级别）
-   *    只有解锁 S 或者 X 锁才更改事务状态
-   *
    *    REPEATABLE_READ:
    *        Unlocking S/X locks should set the transaction state to SHRINKING
-   *
-   *       可重复读：
-   *            解开 s/x锁都应该将事务状态设置为 shrinking
    *
    *    READ_COMMITTED:
    *        Unlocking X locks should set the transaction state to SHRINKING.
    *        Unlocking S locks does not affect transaction state.
-   *
-   *        读提交：
-   *            解锁 × 锁应将事务状态设置为SHRINKING。
-   *            解锁 s 锁不影响事务状态。
    *
    *   READ_UNCOMMITTED:
    *        Unlocking X locks should set the transaction state to SHRINKING.
    *        S locks are not permitted under READ_UNCOMMITTED.
    *            The behaviour upon unlocking an S lock under this isolation level is undefined.
    *
-   *            读未提交：
-   *                解锁 X 锁事务状态设置为SHRINKING。
-   *                不允许使用 S 锁
-   *                在此隔离级别下解锁S锁的行为未定义
-   *
    *
    * BOOK KEEPING:
    *    After a resource is unlocked, lock manager should update the transaction's lock sets
    *    appropriately (check transaction.h)
-   *    在一个资源被解锁之后，锁管理器应当相应地更新事务的锁集合 set
    */
 
   /**
