@@ -1,14 +1,22 @@
+//===----------------------------------------------------------------------===//
+//
+//                         BusTub
+//
+// seq_scan_executor.h
+//
+// Identification: src/include/execution/executors/seq_scan_executor.h
+//
+// Copyright (c) 2015-2021, Carnegie Mellon University Database Group
+//
+//===----------------------------------------------------------------------===//
+
 #pragma once
 
+#include <memory>
 #include <vector>
-
-#include "common/config.h"
-#include "common/rid.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/seq_scan_plan.h"
-#include "storage/table/table_heap.h"
-#include "storage/table/table_iterator.h"
 #include "storage/table/tuple.h"
 
 namespace bustub {
@@ -40,14 +48,12 @@ class SeqScanExecutor : public AbstractExecutor {
   auto GetOutputSchema() const -> const Schema & override { return plan_->OutputSchema(); }
 
  private:
+  void LockTable();
+  void LockRow(const RID &rid);
   /** The sequential scan plan node to be executed */
   const SeqScanPlanNode *plan_;
   const TableInfo *table_info_;
+  TableHeap *table_heap_;
   TableIterator cur_;
-
-  void LockTable();
-  void UnLockTable();
-  void LockRow(const RID &rid);
-  void UnLockRow(const RID &rid);
 };
 }  // namespace bustub
