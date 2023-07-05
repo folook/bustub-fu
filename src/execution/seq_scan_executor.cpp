@@ -68,15 +68,14 @@ void SeqScanExecutor::LockRow(const RID &rid) {
   const auto &txn = exec_ctx_->GetTransaction();
   const auto &lock_mgr = exec_ctx_->GetLockManager();
   const auto &oid = plan_->GetTableOid();
-  bool res = true;
   if (txn->GetIsolationLevel() != IsolationLevel::READ_UNCOMMITTED) {
-    if (!txn->IsRowExclusiveLocked(oid, rid)) {
-      res = lock_mgr->LockRow(txn, LockManager::LockMode::SHARED, oid, rid);
-    }
+    // if (!txn->IsRowExclusiveLocked(oid, rid)) {
+    lock_mgr->LockRow(txn, LockManager::LockMode::SHARED, oid, rid);
+    //}
   }
-  if (!res) {
-    txn->SetState(TransactionState::ABORTED);
-    throw ExecutionException("SeqScanExecutor::Next() lock fail");
-  }
+  //  if (!res) {
+  //    txn->SetState(TransactionState::ABORTED);
+  //    throw ExecutionException("SeqScanExecutor::Next() lock fail");
+  //  }
 }
 }  // namespace bustub
